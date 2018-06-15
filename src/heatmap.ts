@@ -12,7 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-
+import * as d3 from 'd3';
 import {Example2D} from "./dataset";
 
 export interface HeatMapSettings {
@@ -34,16 +34,16 @@ export class HeatMap {
     showAxes: false,
     noSvg: false
   };
-  private xScale: d3.scale.Linear<number, number>;
-  private yScale: d3.scale.Linear<number, number>;
+  private xScale: d3.ScaleLinear<number, number>;
+  private yScale: d3.ScaleLinear<number, number>;
   private numSamples: number;
-  private color: d3.scale.Quantize<string>;
-  private canvas: d3.Selection<any>;
-  private svg: d3.Selection<any>;
+  private color: d3.ScaleQuantize<string>;
+  private canvas: d3.Selection<any, any, any, any>;
+  private svg: d3.Selection<any, any, any, any>;
 
   constructor(
       width: number, numSamples: number, xDomain: [number, number],
-      yDomain: [number, number], container: d3.Selection<any>,
+      yDomain: [number, number], container: d3.Selection<any, any, any, any>,
       userSettings?: HeatMapSettings) {
     this.numSamples = numSamples;
     let height = width;
@@ -56,16 +56,16 @@ export class HeatMap {
       }
     }
 
-    this.xScale = d3.scale.linear()
+    this.xScale = d3.scaleLinear()
       .domain(xDomain)
       .range([0, width - 2 * padding]);
 
-    this.yScale = d3.scale.linear()
+    this.yScale = d3.scaleLinear()
       .domain(yDomain)
       .range([height - 2 * padding, 0]);
 
     // Get a range of colors.
-    let tmpScale = d3.scale.linear<string, string>()
+    let tmpScale = d3.scaleLinear<string, string>()
         .domain([0, .5, 1])
         .range(["#f59322", "#e8eaeb", "#0877bd"])
         .clamp(true);
@@ -76,18 +76,17 @@ export class HeatMap {
     let colors = d3.range(0, 1 + 1E-9, 1 / NUM_SHADES).map(a => {
       return tmpScale(a);
     });
-    this.color = d3.scale.quantize<string>()
+    this.color = d3.scaleQuantize<string>()
                      .domain([-1, 1])
                      .range(colors);
 
     container = container.append("div")
-      .style({
-        width: `${width}px`,
-        height: `${height}px`,
-        position: "relative",
-        top: `-${padding}px`,
-        left: `-${padding}px`
-      });
+      .style('width', `${width}px`)
+      .style('height', `${height}px`)
+      .style('position', `relative`)
+      .style('top', `-${padding}px`)
+      .style('left', `-${padding}px`);
+
     this.canvas = container.append("canvas")
       .attr("width", numSamples)
       .attr("height", numSamples)
@@ -98,29 +97,23 @@ export class HeatMap {
       .style("left", `${padding}px`);
 
     if (!this.settings.noSvg) {
-      this.svg = container.append("svg").attr({
-          "width": width,
-          "height": height
-      }).style({
-        // Overlay the svg on top of the canvas.
-        "position": "absolute",
-        "left": "0",
-        "top": "0"
-      }).append("g")
-        .attr("transform", `translate(${padding},${padding})`);
+    this.svg = container.append("svg")
+      .attr("width", width)
+      .attr("height", height)
+      .style("position", "absolute")
+      .style("left", "0")
+      .style("top", "0")
+      .append("g")
+      .attr("transform", `translate(${padding},${padding})`);
 
       this.svg.append("g").attr("class", "train");
       this.svg.append("g").attr("class", "test");
     }
 
     if (this.settings.showAxes) {
-      let xAxis = d3.svg.axis()
-        .scale(this.xScale)
-        .orient("bottom");
+      let xAxis = d3.axisBottom(this.xScale);
 
-      let yAxis = d3.svg.axis()
-        .scale(this.yScale)
-        .orient("right");
+      let yAxis = d3.axisRight(this.yScale);
 
       this.svg.append("g")
         .attr("class", "x axis")
@@ -178,7 +171,7 @@ export class HeatMap {
     context.putImageData(image, 0, 0);
   }
 
-  private updateCircles(container: d3.Selection<any>, points: Example2D[]) {
+  private updateCircles(container: d3.Selection<any, any, any, any>, points: Example2D[]) {
     // Keep only points that are inside the bounds.
     let xDomain = this.xScale.domain();
     let yDomain = this.yScale.domain();
@@ -195,10 +188,8 @@ export class HeatMap {
 
     // Update points to be in the correct position.
     selection
-      .attr({
-        cx: (d: Example2D) => this.xScale(d.x),
-        cy: (d: Example2D) => this.yScale(d.y),
-      })
+      .attr("cx", (d: Example2D) => this.xScale(d.x))
+      .attr("cy", (d: Example2D) => this.yScale(d.y))
       .style("fill", d => this.color(d.label));
 
     // Remove points if the length has gone down.
